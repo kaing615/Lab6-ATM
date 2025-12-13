@@ -1,0 +1,244 @@
+:root {
+  --bg: #0b1220;
+  --card: #071029;
+  --accent: #06b6d4;
+}
+* {
+  box-sizing: border-box;
+  font-family: Inter, system-ui, Segoe UI, Roboto, Arial;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+}
+
+.container {
+  max-width: 960px;
+  margin: 32px auto;
+  padding: 20px;
+  background: var(--card);
+  border-radius: 10px;
+}
+header h1 {
+  margin: 0;
+}
+nav {
+  margin: 12px 0;
+}
+select,
+input,
+textarea,
+button {
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: transparent;
+  color: inherit;
+}
+main {
+  margin-top: 12px;
+}
+.section {
+  display: grid;
+  gap: 8px;
+}
+.result {
+  background: #071226;
+  padding: 12px;
+  border-radius: 8px;
+  min-height: 160px;
+  white-space: pre-wrap;
+}
+.row {
+  display: flex;
+  gap: 8px;
+}
+
+.card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 18px;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
+}
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.card-head h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #0f172a;
+}
+.card-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn {
+  background: #4f46e5;
+  color: #fff;
+  border: 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.btn[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.btn.ghost {
+  background: transparent;
+  color: #374151;
+  border: 1px solid #e6e9ef;
+}
+.icon-btn {
+  background: transparent;
+  border: 1px dashed #e6e9ef;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+}
+.icon-btn[disabled] {
+  opacity: 0.6;
+}
+.small {
+  padding: 6px 8px;
+  font-size: 13px;
+  border-radius: 8px;
+}
+
+.label {
+  display: block;
+  color: #64748b;
+  font-size: 13px;
+  margin: 10px 0 6px;
+  font-weight: 600;
+}
+.input-area {
+  width: 100%;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #eef2ff;
+  min-height: 120px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono",
+    monospace;
+  resize: vertical;
+  color: #071226;
+}
+
+.meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  gap: 10px;
+}
+.note {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.error {
+  margin-top: 10px;
+  color: #b91c1c;
+  background: #fff3f2;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid #fecaca;
+}
+
+.result-block {
+  margin-top: 12px;
+  background: #fbfdff;
+  border-radius: 8px;
+  padding: 12px;
+  border: 1px solid #eef2ff;
+}
+.result-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  gap: 10px;
+  color: #0f172a;
+}
+.plaintext {
+  background: #fff;
+  border-radius: 8px;
+  padding: 10px;
+  border: 1px solid #eef2ff;
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-family: ui-monospace, Menlo, Monaco, monospace;
+  color: black;
+}
+
+.candidates {
+  margin-top: 12px;
+}
+.candidates-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+.candidate {
+  background: #fff;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #eee;
+}
+.candidate.best {
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+}
+.cand-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.cand-key {
+  font-weight: 700;
+  color: #0f172a;
+}
+.cand-pt {
+  margin-top: 8px;
+  white-space: pre-wrap;
+  font-family: ui-monospace, Menlo, Monaco, monospace;
+  color: #071226;
+}
+
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-left-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 880px) {
+  .card {
+    padding: 14px;
+  }
+  .card-head h3 {
+    font-size: 15px;
+  }
+  .card-actions {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+}
