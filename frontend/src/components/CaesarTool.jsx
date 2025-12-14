@@ -170,7 +170,7 @@ export default function CaesarTool() {
   return (
     <div className="card">
       <div className="card-head">
-        <h3>Caesar — Brute-force (Task 1)</h3>
+        <h3>Caesar — Brute-force</h3>
         <div className="card-actions">
           <button
             className="icon-btn"

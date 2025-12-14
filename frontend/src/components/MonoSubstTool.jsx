@@ -1,410 +1,382 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import axios from "axios";
-import MappingGrid from "./MappingGrid";
-import StatisticsGrid from "./StatisticsGrid";
 
-const api = "http://localhost:4000";
-axios.defaults.baseURL = api;
-axios.defaults.timeout = 600000;
+const letters = Array.from({ length: 26 }, (_, i) =>
+  String.fromCharCode(97 + i)
+);
+const api = "http://localhost:4000/mono";
 
-// ✅ DEBOUNCE UTILITY
 function debounce(func, wait) {
   let timeout;
-  return function executedFunction(...args) {
+  return (...args) => {
     clearTimeout(timeout);
     timeout = setTimeout(() => func(...args), wait);
   };
 }
 
+const dictToArr = (dictMap) => {
+  const arr = new Array(26).fill("");
+  letters.forEach((char, idx) => {
+    arr[idx] = dictMap[char] || char;
+  });
+  return arr;
+};
+
+const arrToDict = (arrMap) => {
+  const dict = {};
+  letters.forEach((char, idx) => {
+    dict[char] = arrMap[idx] || char;
+  });
+  return dict;
+};
+
+function MappingGrid({ mapping, onSwap, onChange }) {
+  if (!mapping) return <div className="placeholder">No mapping loaded</div>;
+
+  return (
+    <div className="mapping-grid-wrapper">
+      <div className="mapping-table-horizontal">
+        <table className="mapping-table">
+          <thead>
+            <tr>
+              <th className="row-label">Cipher</th>
+              {letters.map((c) => (
+                <th key={c}>{c.toUpperCase()}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td className="row-label">Plain</td>
+              {letters.map((c, i) => (
+                <td key={c}>
+                  <input
+                    value={mapping[i] || ""}
+                    onChange={(e) => onChange(i, e.target.value)}
+                    maxLength={1}
+                    className="mapping-input"
+                    placeholder="?"
+                  />
+                </td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div className="swap-controls">
+        <label className="swap-label">Quick Swap: </label>
+        <select id="swapA" className="swap-select">
+          {letters.map((l, i) => (
+            <option key={l} value={i}>
+              {l.toUpperCase()} → {mapping[i] || "?"}
+            </option>
+          ))}
+        </select>
+        <span className="swap-arrow">⇄</span>
+        <select id="swapB" className="swap-select">
+          {letters.map((l, i) => (
+            <option key={l} value={i}>
+              {l.toUpperCase()} → {mapping[i] || "?"}
+            </option>
+          ))}
+        </select>
+        <button
+          className="btn small"
+          onClick={() => {
+            const a = parseInt(document.getElementById("swapA").value);
+            const b = parseInt(document.getElementById("swapB").value);
+            onSwap(a, b);
+          }}
+        >
+          Swap
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function StatisticsGrid({ stats }) {
+  if (!stats || !Array.isArray(stats) || stats.length === 0)
+    return <div className="placeholder">No statistics yet</div>;
+
+  const maxCount = Math.max(...stats.map((s) => s.count), 1);
+
+  return (
+    <div className="stats-grid-wrapper">
+      <table className="stats-table">
+        <thead>
+          <tr>
+            <th>Letter</th>
+            <th>Count</th>
+            <th>Freq</th>
+          </tr>
+        </thead>
+        <tbody>
+          {stats.map((row) => {
+            const intensity = (row.count / maxCount) * 100;
+            return (
+              <tr
+                key={row.letter}
+                style={{
+                  background: `linear-gradient(90deg, rgba(33, 150, 243, 0.1) ${intensity}%, transparent ${intensity}%)`,
+                }}
+              >
+                <td className="letter-cell">{row.letter.toUpperCase()}</td>
+                <td className="count-cell">{row.count}</td>
+                <td className="freq-cell">{row.frequency}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <div className="stats-hint">
+        Higher frequency = more common in ciphertext
+      </div>
+    </div>
+  );
+}
+
 export default function MonoSubstTool() {
   const [ciphertext, setCiphertext] = useState("");
-  const [mapping, setMapping] = useState(null);
+  const [mapping, setMapping] = useState(
+    Array.from({ length: 26 }, (_, i) => String.fromCharCode(97 + i))
+  );
   const [plaintext, setPlaintext] = useState("");
-  const [score, setScore] = useState(null);
-  const [stats, setStats] = useState({});
-  const [busy, setBusy] = useState(false);
+  const [stats, setStats] = useState([]);
   const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [score, setScore] = useState(0);
+  const fileInputRef = useRef(null);
 
-  // ✅ NEW: Solver configuration
-  const [solverConfig, setSolverConfig] = useState({
-    algorithm: "simulated-annealing",
-    restarts: 20,
-    iterations: 3000,
-    initialTemp: 10.0,
-    coolingRate: 0.95,
-  });
-
-  // ✅ NEW: Progress tracking
-  const [progress, setProgress] = useState({
-    current: 0,
-    total: 0,
-    bestScore: 0,
-  });
-
-  // ✅ MEMOIZE: Character frequencies
-  const characterFrequencies = useMemo(() => {
-    if (!ciphertext) return {};
-    const freq = {};
-    for (let c = 97; c <= 122; c++) freq[String.fromCharCode(c)] = 0;
-    for (const ch of ciphertext) {
-      if (/[a-zA-Z]/.test(ch)) {
-        freq[ch.toLowerCase()]++;
+  const applyMappingDebounced = useCallback(
+    debounce(async (currentMappingArr, currentCipher) => {
+      if (!currentCipher) return;
+      try {
+        const resp = await axios.post(`${api}/applyMapping`, {
+          ciphertext: currentCipher,
+          mapping: arrToDict(currentMappingArr),
+        });
+        setPlaintext(resp.data.plaintext);
+        setScore(resp.data.score);
+      } catch (e) {
+        console.error(e);
       }
-    }
-    return freq;
-  }, [ciphertext]);
+    }, 300),
+    []
+  );
+
+  const handleSwap = (a, b) => {
+    const next = [...mapping];
+    [next[a], next[b]] = [next[b], next[a]];
+    setMapping(next);
+    applyMappingDebounced(next, ciphertext);
+  };
+
+  const handleMappingChange = (i, val) => {
+    const next = [...mapping];
+    next[i] = val.toLowerCase();
+    setMapping(next);
+    applyMappingDebounced(next, ciphertext);
+  };
+
+  const handleUploadClick = () => fileInputRef.current?.click();
 
   const handleFile = async (file) => {
     if (!file) return;
     setBusy(true);
     setMsg("");
-
     try {
       const fd = new FormData();
       fd.append("file", file);
 
-      const resp = await axios.post(`${api}/api/uploadCiphertext`, fd);
+      const resp = await axios.post(`${api}/uploadCiphertext`, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
       const text = resp.data.ciphertext;
-
       setCiphertext(text);
-      setMapping(null);
-      setPlaintext("");
-      setScore(null);
-      setProgress({ current: 0, total: 0, bestScore: 0 });
 
-      const s = await axios.post(`${api}/api/stats`, { ciphertext: text });
-      setStats(s.data.freq);
+      const s = await axios.post(`${api}/stats`, { ciphertext: text });
+      setStats(s.data);
+
+      setMapping(
+        Array.from({ length: 26 }, (_, i) => String.fromCharCode(97 + i))
+      );
+      setPlaintext(text);
+      setScore(0);
     } catch (e) {
       console.error(e);
-      setMsg("❌ Không thể upload file.");
+      setMsg("Error uploading file. Check console.");
     } finally {
       setBusy(false);
     }
   };
 
   const initMapping = async () => {
-    if (!ciphertext) return setMsg("⚠️ Hãy nhập ciphertext.");
+    if (!ciphertext) return setMsg("Enter ciphertext first");
     setBusy(true);
-    setMsg("⏳ Khởi tạo mapping...");
-
+    setMsg("");
     try {
-      const resp = await axios.post(`${api}/api/initMapping`, { ciphertext });
-      setMapping(resp.data.mapping);
+      const resp = await axios.post(`${api}/initMapping`, { ciphertext });
+      const newMapArr = dictToArr(resp.data.mapping);
+      setMapping(newMapArr);
       setPlaintext(resp.data.plaintext);
       setScore(resp.data.score);
-      setMsg("✔️ Khởi tạo xong!");
     } catch (e) {
       console.error(e);
-      setMsg("❌ Lỗi server khi tạo mapping.");
+      setMsg("Init failed. Check backend.");
     } finally {
       setBusy(false);
     }
   };
 
-  // ✅ IMPROVED: Auto solve with config
   const autoSolve = async () => {
-    if (!ciphertext) {
-      setMsg("⚠️ Không có ciphertext.");
-      return;
-    }
-
+    if (!ciphertext) return setMsg("Enter ciphertext first");
     setBusy(true);
-    setMsg(
-      `⏳ Chạy ${
-        solverConfig.algorithm === "simulated-annealing"
-          ? "Simulated Annealing"
-          : "Hill Climbing"
-      }...`
-    );
-    setProgress({ current: 0, total: solverConfig.restarts, bestScore: 0 });
-
+    setMsg("");
     try {
-      const resp = await axios.post("/api/autoSolve", {
-        ciphertext,
-        algorithm: solverConfig.algorithm,
-        restarts: solverConfig.restarts,
-        iterations: solverConfig.iterations,
-        initialTemp: solverConfig.initialTemp,
-        coolingRate: solverConfig.coolingRate,
-      });
-
-      const mappingFromServer = resp.data?.mapping ?? resp.data?.key ?? null;
-      const scoreFromServer = resp.data?.score ?? resp.data?.logScore ?? null;
-      const plaintextFromServer =
-        resp.data?.plaintext ?? resp.data?.plain ?? null;
-
-      if (Array.isArray(mappingFromServer) && mappingFromServer.length === 26) {
-        setMapping(mappingFromServer.slice());
-      }
-
-      if (typeof plaintextFromServer === "string") {
-        setPlaintext(plaintextFromServer);
-      }
-
-      if (typeof scoreFromServer === "number") {
-        setScore(scoreFromServer);
-        setProgress((p) => ({ ...p, bestScore: scoreFromServer }));
-        setMsg(
-          `✅ Completed — Score: ${scoreFromServer.toFixed(4)} — Algorithm: ${
-            solverConfig.algorithm
-          }`
-        );
-      } else {
-        setMsg("⚠️ Completed nhưng score không hợp lệ.");
-      }
-    } catch (err) {
-      console.error("autoSolve error:", err);
-      if (err?.code === "ECONNABORTED") {
-        setMsg(
-          "❌ Timeout — Hãy thử giảm iterations hoặc tăng timeout server."
-        );
-      } else {
-        setMsg("❌ Không chạy được Auto-Solve.");
-      }
+      const resp = await axios.post(`${api}/autoSolve`, { ciphertext });
+      const newMapArr = dictToArr(resp.data.mapping);
+      setMapping(newMapArr);
+      setPlaintext(resp.data.plaintext);
+      setScore(resp.data.score);
+    } catch (e) {
+      console.error(e);
+      setMsg("Solve failed. Check backend.");
     } finally {
       setBusy(false);
     }
   };
 
-  // ✅ DEBOUNCED: Apply mapping
-  const applyMappingDebounced = useCallback(
-    debounce(async (m) => {
-      if (!m) return;
-      setMapping(m);
-      try {
-        const resp = await axios.post(`${api}/api/applyMapping`, {
-          ciphertext,
-          mapping: m,
-        });
-        setPlaintext(resp.data.plaintext);
-        setScore(resp.data.score);
-      } catch {
-        setMsg("❌ Không áp dụng được mapping.");
-      }
-    }, 300),
-    [ciphertext]
-  );
-
-  const handleSwap = (a, b) => {
-    const next = [...mapping];
-    [next[a], next[b]] = [next[b], next[a]];
-    applyMappingDebounced(next);
+  const resetMono = () => {
+    setCiphertext("");
+    setMapping(
+      Array.from({ length: 26 }, (_, i) => String.fromCharCode(97 + i))
+    );
+    setPlaintext("");
+    setStats([]);
+    setMsg("");
+    setScore(0);
   };
 
-  /* ======================== RENDER ======================== */
+  const downloadPlaintext = () => {
+    if (!plaintext.trim()) {
+      return alert("No plaintext to download");
+    }
+
+    const mappingLines = letters
+      .map((c, i) => {
+        return `${c.toUpperCase()} → ${(mapping[i] || "?").toUpperCase()}`;
+      })
+      .join("  ");
+
+    const content = `=== MONOALPHABETIC SUBSTITUTION RESULT ===
+
+Score: ${score.toFixed(2)}
+
+Mapping:
+${mappingLines}
+
+Plaintext:
+${plaintext}
+`;
+
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "mono_plaintext.txt";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   return (
-    <div className="tool-container">
-      <h2 className="tool-title">🔐 Mono-alphabetic Cipher Solver</h2>
-
-      {/* ==== TOP TOOLBAR ==== */}
-      <div className="toolbar">
-        <input
-          type="file"
-          accept=".txt"
-          onChange={(e) => handleFile(e.target.files?.[0])}
-          disabled={busy}
-          className="file-input"
-        />
-        <button
-          className="btn btn-secondary"
-          onClick={initMapping}
-          disabled={!ciphertext || busy}
-        >
-          🎯 Init Mapping
-        </button>
-        <button
-          className="btn btn-primary"
-          onClick={autoSolve}
-          disabled={!ciphertext || busy}
-        >
-          {busy ? "⏳ Solving..." : "🚀 Auto-Solve"}
-        </button>
-      </div>
-
-      {/* ==== SOLVER CONFIGURATION PANEL ==== */}
-      <div className="config-panel">
-        <h3>⚙️ Solver Configuration</h3>
-        <div className="config-grid">
-          <label>
-            Algorithm:
-            <select
-              value={solverConfig.algorithm}
-              onChange={(e) =>
-                setSolverConfig({
-                  ...solverConfig,
-                  algorithm: e.target.value,
-                })
-              }
-              disabled={busy}
-            >
-              <option value="simulated-annealing">
-                ⭐ Simulated Annealing (Recommended)
-              </option>
-              <option value="hill-climbing">Hill Climbing</option>
-            </select>
-          </label>
-
-          <label>
-            Restarts:
-            <input
-              type="number"
-              value={solverConfig.restarts}
-              onChange={(e) =>
-                setSolverConfig({
-                  ...solverConfig,
-                  restarts: Math.max(1, +e.target.value),
-                })
-              }
-              disabled={busy}
-              min="1"
-              max="100"
-            />
-          </label>
-
-          <label>
-            Iterations:
-            <input
-              type="number"
-              value={solverConfig.iterations}
-              onChange={(e) =>
-                setSolverConfig({
-                  ...solverConfig,
-                  iterations: Math.max(100, +e.target.value),
-                })
-              }
-              disabled={busy}
-              min="100"
-              max="10000"
-            />
-          </label>
-
-          <label>
-            Initial Temp:
-            <input
-              type="number"
-              value={solverConfig.initialTemp}
-              onChange={(e) =>
-                setSolverConfig({
-                  ...solverConfig,
-                  initialTemp: parseFloat(e.target.value) || 1.0,
-                })
-              }
-              disabled={busy}
-              min="0.1"
-              max="100"
-              step="0.1"
-            />
-          </label>
-
-          <label>
-            Cooling Rate:
-            <input
-              type="number"
-              value={solverConfig.coolingRate}
-              onChange={(e) =>
-                setSolverConfig({
-                  ...solverConfig,
-                  coolingRate: parseFloat(e.target.value) || 0.95,
-                })
-              }
-              disabled={busy}
-              min="0.5"
-              max="0.99"
-              step="0.01"
-            />
-          </label>
+    <div className="card mono-tool">
+      <div className="card-head">
+        <h3>Monoalphabetic — Frequency Analysis</h3>
+        <div className="card-actions">
+          <button
+            className="icon-btn"
+            onClick={handleUploadClick}
+            title="Upload . txt"
+            disabled={busy}
+          >
+            📁
+          </button>
+          <button
+            className="btn btn-primary"
+            onClick={initMapping}
+            disabled={busy}
+          >
+            {busy ? <span className="spinner" /> : "Init Frequency"}
+          </button>
+          <button
+            className="btn btn-secondary"
+            onClick={autoSolve}
+            disabled={busy}
+          >
+            Auto-Solve
+          </button>
+          <button
+            className="btn"
+            onClick={downloadPlaintext}
+            disabled={!plaintext.trim()}
+          >
+            Download
+          </button>
+          <button className="btn ghost" onClick={resetMono} disabled={busy}>
+            Clear
+          </button>
         </div>
       </div>
 
-      {/* ==== PROGRESS BAR ==== */}
-      {busy && (
-        <div className="progress-container">
-          <div className="progress-bar">
-            <div
-              className="progress-fill"
-              style={{
-                width: `${
-                  progress.total > 0
-                    ? (progress.current / progress.total) * 100
-                    : 0
-                }%`,
-              }}
-            />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".txt"
+        style={{ display: "none" }}
+        onChange={(e) => handleFile(e.target.files?.[0])}
+        disabled={busy}
+      />
+
+      <label className="label">Ciphertext</label>
+      <textarea
+        className="input-area"
+        rows={5}
+        value={ciphertext}
+        readOnly
+        placeholder="Uploaded ciphertext will appear here..."
+      />
+
+      <div className="three-cols" style={{ marginTop: "16px" }}>
+        <div className="panel mapping-panel">
+          <h4>Letter Mapping</h4>
+          <MappingGrid
+            mapping={mapping}
+            onSwap={handleSwap}
+            onChange={handleMappingChange}
+          />
+        </div>
+
+        <div className="panel plain-col">
+          <div className="section-header">
+            <span>Plaintext Preview</span>
+            <span className="score">Score: {score?.toFixed(2)}</span>
           </div>
-          <div className="progress-text">
-            {`${
-              solverConfig.algorithm === "simulated-annealing"
-                ? "Simulated Annealing"
-                : "Hill Climbing"
-            } — Best Score: ${progress.bestScore.toFixed(3)}`}
-          </div>
-        </div>
-      )}
-
-      {/* ==== CIPHERTEXT INPUT ==== */}
-      <div className="section">
-        <div className="section-header">
-          <span>📝 Ciphertext</span>
-          {score !== null && (
-            <span className="score">Score: {score.toFixed(3)}</span>
-          )}
-        </div>
-        <textarea
-          className="cipher-box"
-          rows={4}
-          value={ciphertext}
-          onChange={(e) => setCiphertext(e.target.value)}
-          placeholder="Nhập ciphertext hoặc upload file..."
-          disabled={busy}
-        />
-      </div>
-
-      {/* ==== MAIN LAYOUT 3 CỘT ==== */}
-      <div className="three-cols">
-        {/* LEFT: MAPPING */}
-        <div className="panel">
-          <h3>🔑 Mapping</h3>
-          {mapping ? (
-            <MappingGrid
-              mapping={mapping}
-              setMapping={applyMappingDebounced}
-              onSwap={handleSwap}
-              disabled={busy}
-            />
-          ) : (
-            <div className="placeholder">Chưa có mapping</div>
-          )}
-        </div>
-
-        {/* MID: PLAINTEXT */}
-        <div className="panel">
-          <h3>📄 Plaintext</h3>
           <div className="plaintext-box">
-            {busy ? (
-              <div className="loading">⏳ Đang xử lý...</div>
-            ) : plaintext ? (
-              <pre>{plaintext}</pre>
-            ) : (
-              <div className="placeholder">Kết quả sẽ hiển thị ở đây</div>
-            )}
+            <pre className="plaintext">{plaintext}</pre>
           </div>
         </div>
 
-        {/* RIGHT: STATISTICS */}
-        <div className="panel">
-          <h3>📊 Statistics</h3>
-          {Object.keys(stats).length > 0 ? (
-            <StatisticsGrid stats={stats} freqs={characterFrequencies} />
-          ) : (
-            <div className="placeholder">Chưa có dữ liệu</div>
-          )}
+        <div className="panel stats-col">
+          <h4>Letter Statistics</h4>
+          <StatisticsGrid stats={stats} />
         </div>
       </div>
 
-      {/* ==== FOOTER MESSAGE ==== */}
-      {msg && (
-        <div className={`footer-msg ${busy ? "loading" : "done"}`}>{msg}</div>
-      )}
+      {msg && <div className="msg error">{msg}</div>}
     </div>
   );
 }

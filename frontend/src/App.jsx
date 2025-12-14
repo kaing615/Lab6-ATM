@@ -6,6 +6,14 @@ import DES_Tool from "./components/DES_Tool";
 import AES_Tool from "./components/AES_Tool";
 import "./styles.css";
 
+const menuItems = [
+  { key: "caesar", label: "Caesar" },
+  { key: "vigenere", label: "Vigenère" },
+  { key: "mono", label: "Monoalphabetic" },
+  { key: "des", label: "DES" },
+  { key: "aes", label: "AES" },
+];
+
 export default function App() {
   const [active, setActive] = useState("caesar");
 
@@ -20,42 +28,20 @@ export default function App() {
   return (
     <div className="layout">
       <nav className="sidebar">
-        <h2>Lab6 - Crypto Tools</h2>
-
+        <h2> Lab 6</h2>
         <ul>
-          <li
-            className={active === "caesar" ? "active" : ""}
-            onClick={() => setActive("caesar")}
-          >
-            Caesar
-          </li>
-          <li
-            className={active === "vigenere" ? "active" : ""}
-            onClick={() => setActive("vigenere")}
-          >
-            Vigenère
-          </li>
-          <li
-            className={active === "mono" ? "active" : ""}
-            onClick={() => setActive("mono")}
-          >
-            Monoalphabetic
-          </li>
-          <li
-            className={active === "des" ? "active" : ""}
-            onClick={() => setActive("des")}
-          >
-            DES
-          </li>
-          <li
-            className={active === "aes" ? "active" : ""}
-            onClick={() => setActive("aes")}
-          >
-            AES
-          </li>
+          {menuItems.map((item) => (
+            <li
+              key={item.key}
+              className={active === item.key ? "active" : ""}
+              onClick={() => setActive(item.key)}
+            >
+              <span>{item.icon}</span>
+              <span>{item.label}</span>
+            </li>
+          ))}
         </ul>
       </nav>
-
       <main className="content">{tools[active]}</main>
     </div>
   );

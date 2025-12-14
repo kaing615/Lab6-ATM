@@ -1,24 +1,30 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers.caesar import router as caesar_router
-from app.routers.vigenere import router as vigenere_router
-from app.routers.des import router as des_router
-from app.routers.aes import router as aes_router
 
-app = FastAPI(title="Crypto Solver API")
+app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-app.include_router(caesar_router)
-app.include_router(vigenere_router)
-app.include_router(des_router)
-app.include_router(aes_router)
+# ===== Include routers =====
+from app.routers import caesar, vigenere, mono, des, aes
+
+app.include_router(caesar.router)
+app.include_router(vigenere.router)
+app.include_router(mono.router)
+app.include_router(des.router)
+app.include_router(aes.router)
 
 @app.get("/")
 def root():
-    return {"status": "Backend running"}
+    return {"message":  "Crypto API is running"}

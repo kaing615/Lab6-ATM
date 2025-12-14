@@ -7,6 +7,7 @@ export default function VigenereTool() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showCandidates, setShowCandidates] = useState(false);
+  const [selectedKey, setSelectedKey] = useState(null); // <-- Key user chọn
   const fileRef = useRef(null);
 
   const callApi = async (text) => {
@@ -46,15 +47,17 @@ export default function VigenereTool() {
     const f = e.target.files && e.target.files[0];
     if (!f) return;
     const useServer = window.confirm(
-      "Upload to server and solve? (OK = upload, Cancel = read locally)"
+      "Upload to server and solve?  (OK = upload, Cancel = read locally)"
     );
     setLoading(true);
     setError(null);
     setResult(null);
+    setSelectedKey(null);
     try {
       if (useServer) {
         const data = await uploadToServer(f);
         setResult(data);
+        setSelectedKey(data.key);
         setShowCandidates(true);
       } else {
         const content = await readLocalFile(f);
@@ -74,6 +77,7 @@ export default function VigenereTool() {
     setLoading(true);
     setError(null);
     setResult(null);
+    setSelectedKey(null);
     try {
       let data = null;
       try {
@@ -84,6 +88,7 @@ export default function VigenereTool() {
         data.candidates = data.candidates || [];
       }
       setResult(data);
+      setSelectedKey(data.key);
       setShowCandidates(true);
     } catch (err) {
       console.error(err);
@@ -103,9 +108,11 @@ export default function VigenereTool() {
           }\n${c.plaintext}`
       )
       .join("\n\n---\n\n");
-    const content = `Key: ${result.key}\nKeyLen (est): ${
+    const content = `Key: ${selectedKey || result.key}\nKeyLen (est): ${
       result.keyLen || ""
-    }\n\nPlaintext:\n${result.plaintext}\n\nCandidates:\n\n${cands}`;
+    }\nAll Rotations:  ${(result.allRotations || []).join(
+      ", "
+    )}\n\nPlaintext:\n${result.plaintext}\n\nCandidates:\n\n${cands}`;
     const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -117,10 +124,15 @@ export default function VigenereTool() {
     URL.revokeObjectURL(url);
   };
 
+  // Handle khi user chọn một rotation khác
+  const handleKeySelect = (rotation) => {
+    setSelectedKey(rotation);
+  };
+
   return (
     <div className="card">
       <div className="card-head">
-        <h3>Vigenère — Task 3</h3>
+        <h3>Vigenère</h3>
         <div className="card-actions">
           <button
             className="icon-btn"
@@ -138,6 +150,7 @@ export default function VigenereTool() {
               setCipher("");
               setResult(null);
               setError(null);
+              setSelectedKey(null);
             }}
             disabled={loading}
           >
@@ -179,9 +192,36 @@ export default function VigenereTool() {
           <div className="result-head">
             <div>
               <strong>Key:</strong>{" "}
-              {result.displayKey || (result.key || "").toLowerCase()}
+              <span className="key-display">{selectedKey || result.key}</span>
+              <span className="key-length"> (length: {result.keyLen})</span>
             </div>
           </div>
+
+          {result.allRotations && result.allRotations.length > 1 && (
+            <div className="rotations-section">
+              <label className="label">
+                All possible keys (rotations) — click to select:
+              </label>
+              <div className="rotations-list">
+                {result.allRotations.map((rotation, idx) => (
+                  <button
+                    key={idx}
+                    className={`rotation-btn ${
+                      selectedKey === rotation ? "selected" : ""
+                    }`}
+                    onClick={() => handleKeySelect(rotation)}
+                    title="Click to select this key"
+                  >
+                    {rotation}
+                  </button>
+                ))}
+              </div>
+              <div className="rotation-hint">
+                All rotations decrypt to the same plaintext. Pick the one that
+                looks like a real word/phrase.
+              </div>
+            </div>
+          )}
 
           <label className="label">Plaintext (preview)</label>
           <pre className="plaintext">{result.plaintext}</pre>
