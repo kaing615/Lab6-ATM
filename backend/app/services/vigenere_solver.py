@@ -1,7 +1,6 @@
 from collections import Counter
 import math
 
-# English letter frequency (A-Z)
 ENGLISH_FREQ = [
     0.08167, 0.01492, 0.02782, 0.04253, 0.12702, 0.02228, 0.02015,
     0.06094, 0.06966, 0.00153, 0.00772, 0.04025, 0.02406, 0.06749,
@@ -9,7 +8,7 @@ ENGLISH_FREQ = [
     0.00978, 0.02360, 0.00150, 0.01974, 0.00074
 ]
 
-ENGLISH_IC = 0.0667  # Index of Coincidence for English
+ENGLISH_IC = 0.0667
 
 def clean_text(text:  str) -> str:
     """Extract only alphabetic characters and convert to uppercase"""
@@ -23,7 +22,6 @@ def calculate_ic(text: str) -> float:
     n = len(text)
     counts = Counter(text)
     
-    # IC = sum(f_i * (f_i - 1)) / (N * (N - 1))
     numerator = sum(count * (count - 1) for count in counts.values())
     denominator = n * (n - 1)
     
@@ -40,7 +38,6 @@ def find_key_length(ciphertext: str, max_len=20) -> int:
     best_avg_ic = 0.0
     
     for key_len in range(1, min(max_len + 1, len(clean) // 20)):
-        # Calculate average IC across all columns
         ic_sum = 0.0
         
         for offset in range(key_len):
@@ -50,7 +47,6 @@ def find_key_length(ciphertext: str, max_len=20) -> int:
         
         avg_ic = ic_sum / key_len
         
-        # IC closer to English IC (0.0667) is better
         if abs(avg_ic - ENGLISH_IC) < abs(best_avg_ic - ENGLISH_IC):
             best_avg_ic = avg_ic
             best_len = key_len
@@ -80,14 +76,12 @@ def solve_caesar_column(column: str) -> str:
     min_chi2 = float('inf')
     
     for shift in range(26):
-        # Decrypt with this shift
         observed = [0] * 26
         
         for char in column:
             decrypted_idx = (ord(char) - ord('A') - shift) % 26
             observed[decrypted_idx] += 1
         
-        # Calculate chi-squared
         chi2 = chi_squared(observed, n)
         
         if chi2 < min_chi2:
@@ -119,28 +113,22 @@ def decrypt_vigenere(ciphertext: str, key: str) -> str:
     
     for char in ciphertext:
         if char.isalpha():
-            # Determine if uppercase or lowercase
             is_upper = char.isupper()
             char_upper = char.upper()
             
-            # Get indices
             c_idx = ord(char_upper) - ord('A')
             k_idx = ord(key_upper[key_index % len(key_upper)]) - ord('A')
             
-            # Decrypt:  P = (C - K) mod 26
             p_idx = (c_idx - k_idx) % 26
             
-            # Convert back to character
             decrypted = chr(p_idx + ord('A'))
             
-            # Preserve case
             if not is_upper:
                 decrypted = decrypted.lower()
             
             result.append(decrypted)
             key_index += 1
         else: 
-            # Keep non-alphabetic characters as-is
             result.append(char)
     
     return "".join(result)
@@ -152,7 +140,6 @@ def normalize_key(key: str) -> str:
     for length in range(1, n + 1):
         if n % length == 0:
             candidate = key[: length]
-            # Check if this pattern repeats to form the full key
             if candidate * (n // length) == key:
                 return candidate
     
@@ -163,10 +150,8 @@ def get_canonical_key(key:  str) -> str:
     key = key.lower()
     n = len(key)
     
-    # Generate all rotations
     rotations = [key[i:] + key[:i] for i in range(n)]
     
-    # Return the smallest one alphabetically
     return min(rotations)
 
 def get_all_rotations(key:  str) -> list:

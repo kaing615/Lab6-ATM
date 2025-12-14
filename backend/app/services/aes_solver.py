@@ -1,6 +1,5 @@
 import os
 
-# ================= AES CONSTANTS =================
 S_BOX = [
     0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
     0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
@@ -26,7 +25,6 @@ for i, v in enumerate(S_BOX):
 
 RCON = [0x00, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1B, 0x36]
 
-# ================= GALOIS FIELD OPERATIONS =================
 def xtime(a):
     return ((a << 1) ^ 0x1B) & 0xFF if a & 0x80 else (a << 1)
 
@@ -39,7 +37,6 @@ def gmul(a, b):
         b >>= 1
     return r & 0xFF
 
-# ================= AES OPERATIONS =================
 def add_round_key(state, round_key):
     for i in range(16):
         state[i] ^= round_key[i]
@@ -49,20 +46,12 @@ def sub_bytes(state, inv=False):
     for i in range(16):
         state[i] = box[state[i]]
 
-def shift_rows(state, inv=False):
-    # State is column-major:  [0,4,8,12,1,5,9,13,2,6,10,14,3,7,11,15]
-    # Row 0: no shift
-    # Row 1: shift left 1 (or right 3 if inverse)
-    # Row 2: shift left 2
-    # Row 3: shift left 3 (or right 1 if inverse)
-    
+def shift_rows(state, inv=False):  
     if inv:
-        # Inverse:  shift right
         state[1], state[5], state[9], state[13] = state[13], state[1], state[5], state[9]
         state[2], state[6], state[10], state[14] = state[10], state[14], state[2], state[6]
         state[3], state[7], state[11], state[15] = state[7], state[11], state[15], state[3]
     else:
-        # Forward: shift left
         state[1], state[5], state[9], state[13] = state[5], state[9], state[13], state[1]
         state[2], state[6], state[10], state[14] = state[10], state[14], state[2], state[6]
         state[3], state[7], state[11], state[15] = state[15], state[3], state[7], state[11]
@@ -72,25 +61,21 @@ def mix_columns(state, inv=False):
         col = [state[i * 4 + j] for j in range(4)]
         
         if inv:
-            # Inverse MixColumns
             state[i * 4] = gmul(col[0], 14) ^ gmul(col[1], 11) ^ gmul(col[2], 13) ^ gmul(col[3], 9)
             state[i * 4 + 1] = gmul(col[0], 9) ^ gmul(col[1], 14) ^ gmul(col[2], 11) ^ gmul(col[3], 13)
             state[i * 4 + 2] = gmul(col[0], 13) ^ gmul(col[1], 9) ^ gmul(col[2], 14) ^ gmul(col[3], 11)
             state[i * 4 + 3] = gmul(col[0], 11) ^ gmul(col[1], 13) ^ gmul(col[2], 9) ^ gmul(col[3], 14)
         else:
-            # Forward MixColumns
             state[i * 4] = gmul(col[0], 2) ^ gmul(col[1], 3) ^ col[2] ^ col[3]
             state[i * 4 + 1] = col[0] ^ gmul(col[1], 2) ^ gmul(col[2], 3) ^ col[3]
             state[i * 4 + 2] = col[0] ^ col[1] ^ gmul(col[2], 2) ^ gmul(col[3], 3)
             state[i * 4 + 3] = gmul(col[0], 3) ^ col[1] ^ col[2] ^ gmul(col[3], 2)
 
-# ================= KEY EXPANSION =================
 def key_expansion(key):
     key_len = len(key)
-    Nk = key_len // 4  # Number of 32-bit words in the key
-    Nr = Nk + 6        # Number of rounds
+    Nk = key_len // 4 
+    Nr = Nk + 6
     
-    # Initialize with the original key
     w = list(key)
     
     def sub_word(word):
@@ -112,25 +97,20 @@ def key_expansion(key):
         w.extend([w[-4 * Nk + j] ^ temp[j] for j in range(4)])
         i += 1
     
-    # Split into round keys (16 bytes each)
     return [w[i:i + 16] for i in range(0, len(w), 16)]
 
-# ================= AES BLOCK CIPHER =================
 def aes_encrypt_block(block, round_keys):
     state = list(block)
     Nr = len(round_keys) - 1
     
-    # Initial round
     add_round_key(state, round_keys[0])
     
-    # Main rounds
     for r in range(1, Nr):
         sub_bytes(state)
         shift_rows(state)
         mix_columns(state)
         add_round_key(state, round_keys[r])
     
-    # Final round (no MixColumns)
     sub_bytes(state)
     shift_rows(state)
     add_round_key(state, round_keys[Nr])
@@ -141,24 +121,20 @@ def aes_decrypt_block(block, round_keys):
     state = list(block)
     Nr = len(round_keys) - 1
     
-    # Initial round
     add_round_key(state, round_keys[Nr])
     
-    # Main rounds (in reverse)
     for r in range(Nr - 1, 0, -1):
         shift_rows(state, inv=True)
         sub_bytes(state, inv=True)
         add_round_key(state, round_keys[r])
         mix_columns(state, inv=True)
     
-    # Final round (no MixColumns)
     shift_rows(state, inv=True)
     sub_bytes(state, inv=True)
     add_round_key(state, round_keys[0])
     
     return bytes(state)
 
-# ================= PADDING =================
 def pad(data):
     padding_len = 16 - (len(data) % 16)
     return data + bytes([padding_len] * padding_len)
@@ -175,13 +151,11 @@ def unpad(data):
     if len(data) < padding_len:
         raise ValueError(f"Data too short for padding:  {len(data)} < {padding_len}")
     
-    # Verify all padding bytes are correct
     if data[-padding_len:] != bytes([padding_len] * padding_len):
         raise ValueError("Invalid padding")
     
     return data[:-padding_len]
 
-# ================= ENCRYPT / DECRYPT =================
 def encrypt(plaintext, key, mode, iv=None):
     if len(key) not in (16, 24, 32):
         raise ValueError("Key must be 16, 24, or 32 bytes")
@@ -245,7 +219,6 @@ def decrypt(ciphertext, key, mode, iv=None):
         for i in range(0, len(ciphertext), 16):
             block = ciphertext[i: i + 16]
             decrypted = aes_decrypt_block(block, round_keys)
-            # XOR with previous ciphertext (or IV)
             plaintext += bytes(a ^ b for a, b in zip(decrypted, prev))
             prev = block
         

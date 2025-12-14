@@ -212,7 +212,7 @@ class MonoalphabeticAnalyzer:
         return mapping
 
     @staticmethod
-    def solve(ciphertext, restarts=20, iterations=2000):
+    def solve(ciphertext, restarts=30, iterations=4000):
         MonoalphabeticAnalyzer.initialize_language_models()
         best_key = None
         best_score = float('-inf')

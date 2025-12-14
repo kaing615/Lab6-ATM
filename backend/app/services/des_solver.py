@@ -1,7 +1,5 @@
-# des_core.py
 import os
 
-# ================= IP / IP-1 =================
 IP = [
     58,50,42,34,26,18,10,2, 60,52,44,36,28,20,12,4,
     62,54,46,38,30,22,14,6, 64,56,48,40,32,24,16,8,
@@ -85,7 +83,6 @@ S_BOX = [
      [2,1,14,7,4,10,8,13,15,12,9,0,3,5,6,11]]
 ]
 
-# -------- Bit helpers --------
 def bytes_to_bits(b): return [(b[i] >> (7-j)) & 1 for i in range(len(b)) for j in range(8)]
 def bits_to_bytes(bits):
     out = bytearray(len(bits)//8)
@@ -97,7 +94,6 @@ def permute(bits, table): return [bits[i-1] for i in table]
 def xor(a,b): return [i^j for i,j in zip(a,b)]
 def rotl(b,n): return b[n:]+b[:n]
 
-# -------- Core --------
 def subkeys(key):
     k = permute(bytes_to_bits(key), PC1)
     C,D = k[:28],k[28:]
