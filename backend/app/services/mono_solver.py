@@ -230,7 +230,6 @@ class MonoalphabeticAnalyzer:
 
     @staticmethod
     def get_letter_frequencies(ciphertext):
-        """Trả về list dict cho frontend hiển thị bảng"""
         counts = Counter([c.lower() for c in ciphertext if c.isalpha()])
         total = sum(counts.values())
         
