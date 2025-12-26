@@ -11,11 +11,9 @@ ENGLISH_FREQ = [
 ENGLISH_IC = 0.0667
 
 def clean_text(text:  str) -> str:
-    """Extract only alphabetic characters and convert to uppercase"""
     return "".join(c.upper() for c in text if c.isalpha())
 
 def calculate_ic(text: str) -> float:
-    """Calculate Index of Coincidence for a text"""
     if not text or len(text) <= 1:
         return 0.0
     
@@ -28,7 +26,6 @@ def calculate_ic(text: str) -> float:
     return numerator / denominator if denominator > 0 else 0.0
 
 def find_key_length(ciphertext: str, max_len=20) -> int:
-    """Find most likely key length using Index of Coincidence"""
     clean = clean_text(ciphertext)
     
     if len(clean) < 100:
@@ -54,7 +51,6 @@ def find_key_length(ciphertext: str, max_len=20) -> int:
     return best_len
 
 def chi_squared(observed_counts: list, text_length: int) -> float:
-    """Calculate chi-squared statistic against English frequency"""
     chi2 = 0.0
     
     for i in range(26):
@@ -67,7 +63,6 @@ def chi_squared(observed_counts: list, text_length: int) -> float:
     return chi2
 
 def solve_caesar_column(column: str) -> str:
-    """Find best Caesar shift for a single column using chi-squared"""
     if not column:
         return 'A'
     
@@ -91,7 +86,6 @@ def solve_caesar_column(column: str) -> str:
     return chr(ord('A') + best_shift)
 
 def find_key(ciphertext: str, key_len: int) -> str:
-    """Find the key by solving each Caesar-shifted column"""
     clean = clean_text(ciphertext)
     key_chars = []
     
@@ -103,7 +97,6 @@ def find_key(ciphertext: str, key_len: int) -> str:
     return "".join(key_chars)
 
 def decrypt_vigenere(ciphertext: str, key: str) -> str:
-    """Decrypt Vigenere cipher, preserving non-alphabetic characters"""
     if not key: 
         return ciphertext
     
@@ -134,7 +127,6 @@ def decrypt_vigenere(ciphertext: str, key: str) -> str:
     return "".join(result)
 
 def normalize_key(key: str) -> str:
-    """Reduce key to shortest repeating pattern"""
     n = len(key)
     
     for length in range(1, n + 1):
@@ -146,7 +138,6 @@ def normalize_key(key: str) -> str:
     return key
 
 def get_canonical_key(key:  str) -> str:
-    """Return the lexicographically smallest rotation of the key"""
     key = key.lower()
     n = len(key)
     
@@ -155,13 +146,11 @@ def get_canonical_key(key:  str) -> str:
     return min(rotations)
 
 def get_all_rotations(key:  str) -> list:
-    """Get all rotations of a key"""
     key = key.lower()
     n = len(key)
     return [key[i: ] + key[:i] for i in range(n)]
 
 def solve_vigenere(ciphertext:  str, max_key_len=20):
-    """Main solver function"""
     key_len = find_key_length(ciphertext, max_key_len)
     raw_key = find_key(ciphertext, key_len)
     key = normalize_key(raw_key)

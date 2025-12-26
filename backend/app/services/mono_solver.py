@@ -23,11 +23,9 @@ class MonoalphabeticAnalyzer:
             return
 
         if folder_path is None:
-            # Try multiple possible locations
             current_file_path = os.path.abspath(__file__)
             services_dir = os.path.dirname(current_file_path)
             
-            # Try these paths in order
             possible_paths = [
                 os.path.join(services_dir, "..", "ngrams"),
                 os.path.join(services_dir, "ngrams"),
@@ -35,7 +33,6 @@ class MonoalphabeticAnalyzer:
                 os.path.join(os.getcwd(), "app", "ngrams"),
             ]
             
-            # Find the first path that exists
             folder_path = None
             for path in possible_paths:
                 if os.path.exists(path):
@@ -45,7 +42,6 @@ class MonoalphabeticAnalyzer:
             
             if folder_path is None:
                 print(f"WARNING: Could not find ngrams folder. Tried: {possible_paths}")
-                # Create minimal fallback
                 MonoalphabeticAnalyzer._setup_minimal_fallback()
                 return
 
@@ -72,7 +68,6 @@ class MonoalphabeticAnalyzer:
             elif key == 'quad':
                 MonoalphabeticAnalyzer._quad, MonoalphabeticAnalyzer._quad_min = MonoalphabeticAnalyzer._load_ngram_file(full_path)
 
-        # Update freq order
         if MonoalphabeticAnalyzer._mono:
             sorted_mono = sorted(MonoalphabeticAnalyzer._mono.items(), key=lambda item: item[1], reverse=True)
             MonoalphabeticAnalyzer._english_frequency_order = "".join([item[0] for item in sorted_mono])
@@ -81,12 +76,9 @@ class MonoalphabeticAnalyzer:
 
     @staticmethod
     def _setup_minimal_fallback():
-        """Setup minimal English frequency data as fallback"""
         print("Using minimal fallback frequency data")
-        # Basic English letter frequencies
         MonoalphabeticAnalyzer._english_frequency_order = "etaoinshrdlcumwfgypbvkjxqz"
         MonoalphabeticAnalyzer._language_model_loaded = True
-        # Set minimal scores so compute_score doesn't crash
         MonoalphabeticAnalyzer._mono_min = -10
         MonoalphabeticAnalyzer._bi_min = -10
         MonoalphabeticAnalyzer._tri_min = -10
@@ -161,7 +153,6 @@ class MonoalphabeticAnalyzer:
         counts = Counter([c. lower() for c in ciphertext if c.isalpha()])
         sorted_cipher = [x[0] for x in counts.most_common()]
         
-        # Fill missing chars
         all_chars = set("abcdefghijklmnopqrstuvwxyz")
         missing = list(all_chars - set(sorted_cipher))
         sorted_cipher.extend(missing)
@@ -170,44 +161,38 @@ class MonoalphabeticAnalyzer:
         eng_order = MonoalphabeticAnalyzer._english_frequency_order
         used_plain = set()
 
-        # Map theo thứ tự tần suất
         for i, c_char in enumerate(sorted_cipher):
-            # FIX:  Ensure c_char is a valid lowercase letter
             if not c_char.isalpha():
                 continue
             c_char = c_char.lower()
             
             idx = ord(c_char) - ord('a')
             
-            # FIX: Add bounds check
             if idx < 0 or idx >= 26:
                 continue
                 
             if i < len(eng_order):
                 p_char = eng_order[i]
             else:
-                # Fallback
                 remain = list(all_chars - used_plain)
                 p_char = remain[0] if remain else c_char
             
             mapping[idx] = p_char
             used_plain.add(p_char)
         
-        # FIX: Fill any empty slots with themselves
         for i in range(26):
             if mapping[i] == '':
                 fallback = chr(ord('a') + i)
                 if fallback not in used_plain: 
                     mapping[i] = fallback
                 else:
-                    # Find any unused character
                     for ch in all_chars:
                         if ch not in used_plain: 
                             mapping[i] = ch
                             used_plain.add(ch)
                             break
                     else:
-                        mapping[i] = fallback  # Last resort
+                        mapping[i] = fallback
                 
         return mapping
 
@@ -220,7 +205,6 @@ class MonoalphabeticAnalyzer:
 
         for _ in range(restarts):
             key = MonoalphabeticAnalyzer.build_initial_mapping_by_frequency(ciphertext)
-            # Shuffle key nhẹ
             for _ in range(15):
                 a, b = random.randint(0, 25), random.randint(0, 25)
                 key[a], key[b] = key[b], key[a]
@@ -233,7 +217,6 @@ class MonoalphabeticAnalyzer:
                 while a == b: b = random.randint(0, 25)
                 next_key[a], next_key[b] = next_key[b], next_key[a]
                 
-                # Check score
                 next_score = MonoalphabeticAnalyzer.compute_score(MonoalphabeticAnalyzer.apply_mapping(filtered, next_key))
                 if next_score > curr_score:
                     curr_score = next_score
@@ -262,6 +245,5 @@ class MonoalphabeticAnalyzer:
                 "frequency": f"{percent:.2f}%"
             })
         
-        # Sort theo count giảm dần
         stats.sort(key=lambda x: x["count"], reverse=True)
         return stats
